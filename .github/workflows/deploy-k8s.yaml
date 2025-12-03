@@ -1,0 +1,34 @@
+name: CI/CD — Deploy to Kubernetes
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Install kubectl
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'latest'
+
+      # Restore kubeconfig from secret
+      - name: Restore Kubeconfig
+        env:
+          KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
+        run: |
+          echo "$KUBE_CONFIG_DATA" | base64 --decode > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+          kubectl config get-contexts --no-headers || true
+
+      - name: Deploy manifests to Kubernetes
+        run: |
+          kubectl apply -f k8s/
+          kubectl rollout status deployment/myapp -n default --timeout=120s
